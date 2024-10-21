@@ -74,16 +74,17 @@ def generate_question_paper(course_text):
     }
 
 # Streamlit App UI
-
 st.title("Question Paper Generator")
 
 # File Upload for PDF
-uploaded_pdf = st.file_uploader("Upload your course book PDF", type="pdf")
+uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
 
 if uploaded_pdf:
+    num_of_pages = uploaded_pdf.getNumPages()
     # Take input for start and end page numbers
+    st.write("Please select up to 20 pages at a time.")
     start_page = st.number_input("Enter the start page number:", min_value=1, step=1)
-    end_page = st.number_input("Enter the end page number:", min_value=start_page, step=1)
+    end_page = st.number_input("Enter the end page number:", min_value=start_page+10, step=1)
     
     if st.button("Generate Question Paper"):
         # Extract text from PDF
@@ -99,18 +100,27 @@ if uploaded_pdf:
             st.subheader("Total Tokens Used")
             st.write(sum(question_paper['tokens_used']))
 
+            # Function to render LaTeX or text
+            def display_question(question):
+                if "$" in question:  # Simple check for LaTeX math mode
+                    st.latex(question)  # Render as LaTeX if detected
+                else:
+                    st.write(question)  # Render as plain text if no LaTeX
 
             # Display MCQs
             st.subheader("Multiple Choice Questions (5):")
             for i, mcq in enumerate(question_paper['mcqs'], 1):
-                st.write(f"{i}. {mcq}")
+                st.write(f"{i}. ")
+                display_question(mcq)
             
             # Display Six-Mark Questions
             st.subheader("Six-Mark Questions (2):")
             for i, question in enumerate(question_paper['six_mark_questions'], 1):
-                st.write(f"{i}. {question}")
+                st.write(f"{i}. ")
+                display_question(question)
             
             # Display Ten-Mark Questions
             st.subheader("Ten-Mark Questions (2):")
             for i, question in enumerate(question_paper['eighteen_mark_questions'], 1):
-                st.write(f"{i}. {question}")
+                st.write(f"{i}. ")
+                display_question(question)
