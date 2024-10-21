@@ -80,22 +80,27 @@ st.title("Question Paper Generator")
 uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
 
 if uploaded_pdf:
-    num_of_pages = uploaded_pdf.getNumPages()
+    # Load the uploaded PDF using PdfReader
+    pdf_reader = PdfReader(uploaded_pdf)
+    num_of_pages = len(pdf_reader.pages)
+
+    st.write(f"The PDF contains {num_of_pages} pages.")
+    
     # Take input for start and end page numbers
     st.write("Please select up to 20 pages at a time.")
-    start_page = st.number_input("Enter the start page number:", min_value=1, step=1)
-    end_page = st.number_input("Enter the end page number:", min_value=start_page+10, step=1)
-    
+    start_page = st.number_input("Enter the start page number:", min_value=1, max_value=num_of_pages, step=1)
+    end_page = st.number_input("Enter the end page number:", min_value=start_page, max_value=min(start_page+19, num_of_pages), step=1)
+
     if st.button("Generate Question Paper"):
         # Extract text from PDF
         course_text = extract_text_from_pdf(uploaded_pdf, start_page, end_page)
-        
+
         if "Error" in course_text:
             st.error(course_text)  # Show the error if there's an issue with the extraction
         else:
-            # Generate question paper
+            # Generate question paper (assuming `generate_question_paper` is implemented)
             question_paper = generate_question_paper(course_text)
-            
+
             # Display Tokens Used
             st.subheader("Total Tokens Used")
             st.write(sum(question_paper['tokens_used']))
@@ -112,13 +117,13 @@ if uploaded_pdf:
             for i, mcq in enumerate(question_paper['mcqs'], 1):
                 st.write(f"{i}. ")
                 display_question(mcq)
-            
+
             # Display Six-Mark Questions
             st.subheader("Six-Mark Questions (2):")
             for i, question in enumerate(question_paper['six_mark_questions'], 1):
                 st.write(f"{i}. ")
                 display_question(question)
-            
+
             # Display Ten-Mark Questions
             st.subheader("Ten-Mark Questions (2):")
             for i, question in enumerate(question_paper['eighteen_mark_questions'], 1):
