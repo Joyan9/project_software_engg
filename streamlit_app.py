@@ -6,7 +6,7 @@ import random
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 
-client = OpenAI(api_key=os.environ['open_ai_key'])
+client = OpenAI(api_key=open_ai_key)
 
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
