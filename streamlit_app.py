@@ -1,6 +1,5 @@
 import streamlit as st
 from openai import OpenAI
-import os
 from PyPDF2 import PdfReader
 import random
 
