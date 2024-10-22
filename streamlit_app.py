@@ -79,7 +79,45 @@ def generate_question_paper(course_text):
     
 
 # Streamlit App UI
-st.title("Question Paper Generator")
+# Set page layout to wide mode for a more immersive hero image
+st.set_page_config(layout="wide")
+
+# Add CSS to style the hero image
+st.markdown("""
+    <style>
+    .hero-image {
+        width: 100%;
+        height: 300px; /* Set the height of the hero image */
+        object-fit: cover; /* Cover the area and keep aspect ratio */
+        margin-bottom: 20px; /* Add some space below the image */
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Display the hero image
+st.image("iu_logo.jpg", caption="Welcome to the Unit Test Generator", use_column_width=True)
+
+# Or use st.markdown with HTML if you want more control
+st.markdown("""
+    <img src="your_hero_image.jpg" class="hero-image" alt="Hero Image">
+""", unsafe_allow_html=True)
+
+# Add some vertical space
+st.write("\n" * 10)  # This will add 5 new lines as space
+# Some introductory content
+st.write("""
+Welcome to the Unit Test Generator.
+
+As an IU student, I noticed that the unit tests available on myCampus often don't challenge students enough. This tool is designed to help IU students push themselves further and better prepare for their final exams.
+
+The user simply uploads a PDF of one of their units and clicks the 'Generate Questions' button. The web app will then generate 3 multiple-choice questions, 2 six-mark questions, and 2 ten-mark questions.
+
+Please note that this web app was developed solely for academic purposes and is not intended for production use. Additionally, no data is stored on the servers.
+""")
+
+
+# Add some vertical space
+st.write("\n" * 10) 
 
 # File Upload for PDF
 uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
@@ -89,65 +127,53 @@ if uploaded_pdf:
     pdf_reader = PdfReader(uploaded_pdf)
     num_of_pages = len(pdf_reader.pages)
 
-    st.write(f"The PDF contains {num_of_pages} pages.")
-    
-    # Take input for start and end page numbers
-    st.write("Please select up to 20 pages at a time.")
-    start_page = st.number_input("Enter the start page number:", min_value=1, max_value=num_of_pages, step=1)
-    end_page = st.number_input("Enter the end page number:", min_value=start_page, max_value=min(start_page+19, num_of_pages), step=1)
+    st.markdown("""
+    <span style="color:darkorange;">
+    Note: For this academic project, only the first 20 pages of the uploaded PDF will be processed. 
+    This limitation helps reduce token usage and minimize costs.
+    </span>
+    """, unsafe_allow_html=True)
 
-    if st.button("Generate Question Paper"):
+    # Add some vertical space
+    st.write("\n" * 2) 
+
+    st.write(f"The uploaded PDF contains {num_of_pages} pages.")
+
+    if st.button("Generate Questions"):
         # Extract text from PDF
-        course_text = extract_text_from_pdf(uploaded_pdf, start_page, end_page)
-        question_paper = generate_question_paper(course_text)
+        course_text = extract_text_from_pdf(uploaded_pdf, 1, 20)
 
-        # Displaying questions with LaTeX
-        st.subheader("Multiple Choice Questions (5):")
-        for i, mcq in enumerate(question_paper['mcqs'], 1):
-            st.write(f"Q{i}:")
-            st.latex(mcq)
+        if "Error" in course_text:
+            st.error(course_text)  # Show the error if there's an issue with the extraction
+        else:
+            # Generate question paper (assuming `generate_question_paper` is implemented)
+            question_paper = generate_question_paper(course_text)
 
-        st.subheader("Six-Mark Questions (2):")
-        for i, question in enumerate(question_paper['six_mark_questions'], 1):
-            st.write(f"Q{i}:")
-            st.latex(question)
+            # Display Tokens Used
+            st.subheader("Total Tokens Used")
+            st.write(sum(question_paper['tokens_used']))
 
+            # Function to render LaTeX or text
+            def display_question(question):
+                if "$" in question:  # Simple check for LaTeX math mode
+                    st.latex(question)  # Render as LaTeX if detected
+                else:
+                    st.write(question)  # Render as plain text if no LaTeX
+
+            # Display MCQs
+            st.subheader("Multiple Choice Questions (5):")
+            for i, mcq in enumerate(question_paper['mcqs'], 1):
+                st.write(f"{i}. ")
+                display_question(mcq)
+
+            # Display Six-Mark Questions
+            st.subheader("Six-Mark Questions (2):")
+            for i, question in enumerate(question_paper['six_mark_questions'], 1):
+                st.write(f"{i}. ")
+                display_question(question)
+
+        # Display Ten-Mark Questions
         st.subheader("Ten-Mark Questions (2):")
-        for i, question in enumerate(question_paper['ten_mark_questions'], 1):
-            st.write(f"Q{i}:")
-            st.latex(question)
-
-            if "Error" in course_text:
-                st.error(course_text)  # Show the error if there's an issue with the extraction
-            else:
-                # Generate question paper (assuming `generate_question_paper` is implemented)
-                question_paper = generate_question_paper(course_text)
-
-                # Display Tokens Used
-                st.subheader("Total Tokens Used")
-                st.write(sum(question_paper['tokens_used']))
-
-                # Function to render LaTeX or text
-                def display_question(question):
-                    if "$" in question:  # Simple check for LaTeX math mode
-                        st.latex(question)  # Render as LaTeX if detected
-                    else:
-                        st.write(question)  # Render as plain text if no LaTeX
-
-                # Display MCQs
-                st.subheader("Multiple Choice Questions (5):")
-                for i, mcq in enumerate(question_paper['mcqs'], 1):
-                    st.write(f"{i}. ")
-                    display_question(mcq)
-
-                # Display Six-Mark Questions
-                st.subheader("Six-Mark Questions (2):")
-                for i, question in enumerate(question_paper['six_mark_questions'], 1):
-                    st.write(f"{i}. ")
-                    display_question(question)
-
-                # Display Ten-Mark Questions
-                st.subheader("Ten-Mark Questions (2):")
-                for i, question in enumerate(question_paper['eighteen_mark_questions'], 1):
-                    st.write(f"{i}. ")
-                    display_question(question)
+        for i, question in enumerate(question_paper['eighteen_mark_questions'], 1):
+            st.write(f"{i}. ")
+            display_question(question)
