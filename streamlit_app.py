@@ -1,24 +1,24 @@
 import streamlit as st
 from openai import OpenAI
 from PyPDF2 import PdfReader
-import random
 import json
+from datetime import datetime
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
 
-# Initialize token limit
-TOKEN_LIMIT = 100_000
+# Token limit and reset configurations
+DAILY_TOKEN_LIMIT = 10000
 
-# Track total token usage
-if 'total_tokens_used' not in st.session_state:
-    st.session_state['total_tokens_used'] = 0
+# Initialize or retrieve token usage and date
+if "token_usage" not in st.session_state or "usage_date" not in st.session_state:
+    st.session_state["token_usage"] = 0
+    st.session_state["usage_date"] = datetime.now().date()
 
-# Function to check if the user has enough tokens left to generate questions
-def check_token_balance(tokens_required):
-    remaining_tokens = TOKEN_LIMIT - st.session_state['total_tokens_used']
-    return remaining_tokens >= tokens_required
-
+# Reset token count if the day has changed
+if st.session_state["usage_date"] != datetime.now().date():
+    st.session_state["token_usage"] = 0
+    st.session_state["usage_date"] = datetime.now().date()
 
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
@@ -39,51 +39,61 @@ def extract_text_from_pdf(pdf, start_page, end_page):
         return f"Error extracting text from PDF: {str(e)}"
 
 
-# Combined function to generate all questions with a single OpenAI API call
+# Function to generate questions and track token usage
 def generate_question_paper(course_content):
     prompt = (
-        f"Generate the following questions based on this course content: {course_content}\n\n"
-        f"1. Five multiple-choice questions (MCQs) with varying difficulty levels.\n"
-        f"2. Two six-mark long-answer questions with varying difficulty levels.\n"
-        f"3. Two ten-mark long-answer questions with varying difficulty levels.\n\n"
-        f"Return the result in the following structured format as a direct JSON object:\n"
+        f"You are a subject matter expert for the following course content.\n"
+        f"Generate questions based on this course content: {course_content}\n\n"
+        f"Instructions:\n"
+        f"1. Create five multiple-choice questions (MCQs) with a range of difficulty levels.\n"
+        f"2. Create two six-mark questions, ensuring a variety of difficulty levels.\n"
+        f"3. Create two ten-mark questions, also with varied difficulty.\n"
+        f"4. Include numerical questions if suitable for the course content.\n\n"
+        f"Output Format:\n"
+        f"Return a JSON object only, structured as follows:\n"
         f"{{\n"
-        f"  'mcqs': [list of 5 MCQs],\n"
-        f"  'six_mark_questions': [list of 2 six-mark questions],\n"
-        f"  'ten_mark_questions': [list of 2 ten-mark questions]\n"
+        f"  'mcqs': [List of 5 MCQs as JSON objects],\n"
+        f"  'six_mark_questions': [List of 2 six-mark questions as JSON objects],\n"
+        f"  'ten_mark_questions': [List of 2 ten-mark questions as JSON objects]\n"
         f"}}\n\n"
-        f"ONLY respond with JSON."
-        f"NO preceeding words like json:"
-        f"Do not include the answers or any explanations."
+        f"Instructions:\n"
+        f"- ONLY respond with the JSON object.\n"
+        f"- Do not include any introductory text or explanations.\n"
     )
 
     try:
-        # Using the correct method for chat completion and capturing token usage
+        # Check token usage limit before making a request
+        if st.session_state["token_usage"] >= DAILY_TOKEN_LIMIT:
+            st.warning("Daily token limit reached. Try again tomorrow.")
+            return None
+
+        # Using OpenAI to generate the response and track token usage
         chat_completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
         )
         
-        # Extract the generated questions and token usage
+        # Get the response and token count
         generated_questions = chat_completion.choices[0].message.content
-        total_tokens = chat_completion.usage.total_tokens
-
+        tokens_used = chat_completion.usage.total_tokens
         
-        # Parse the response as a JSON-like dictionary
-        question_data = json.loads(generated_questions)  # Safe JSON parsing
+        # Update session token count
+        st.session_state["token_usage"] += tokens_used
 
-        # Return the questions and total tokens used
+        # Parse the response as a JSON
+        question_data = json.loads(generated_questions)
+        
         return {
-            "raw_output" : generated_questions,
+            "raw_output": generated_questions,
             "mcqs": question_data['mcqs'],
             "six_mark_questions": question_data['six_mark_questions'],
             "ten_mark_questions": question_data['ten_mark_questions'],
-            "tokens_used": total_tokens
+            "tokens_used": tokens_used
         }
 
     except Exception as e:
-        return f"Error generating question: {str(e)}", 0
-
+        st.error(f"Error generating question: {str(e)}")
+        return None
 
 
 # Streamlit App UI
@@ -116,7 +126,6 @@ st.markdown(
 
 # Add vertical space
 st.write("\n" * 10)
-
 # Some introductory content
 st.write("""
 As an IU student, I noticed that the unit tests available on myCampus often don't challenge students enough. This tool is designed to help IU students push themselves further and better prepare for their final exams.
@@ -124,7 +133,7 @@ As an IU student, I noticed that the unit tests available on myCampus often don'
 The user simply uploads a PDF of one of their units and clicks the 'Generate Questions' button. 
 The web app will then generate 5 multiple-choice questions, 2 six-mark questions, and 2 ten-mark questions all with varying difficulty levels.
          
-Each user gets a maximum of 100,000 tokens (100 tokens ~= 75 words, read more here: https://platform.openai.com/tokenizer).
+Each user gets a maximum of 100,000 tokens per session (100 tokens ≈ 75 words, read more [here](https://platform.openai.com/tokenizer)).
 
 Please note that this web app was developed solely for academic purposes and is not intended for production use. Additionally, no data is stored on the servers.
 """)
@@ -132,62 +141,64 @@ Please note that this web app was developed solely for academic purposes and is 
 # Add vertical space
 st.write("\n" * 10)
 
-# Display Token Limit
-st.write(f"Remaining Tokens: {TOKEN_LIMIT - st.session_state['total_tokens_used']}")
+# Display remaining tokens
+remaining_tokens = DAILY_TOKEN_LIMIT - st.session_state["token_usage"]
 
-# File Upload for PDF
-uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
+# Show token count
+st.write(f"Remaining Tokens Today: {remaining_tokens}")
 
-if uploaded_pdf:
-    # Load the uploaded PDF using PdfReader
-    pdf_reader = PdfReader(uploaded_pdf)
-    num_of_pages = len(pdf_reader.pages)
+# Check if remaining tokens have gone below 1000
+if remaining_tokens < 1000:
+    st.error("Daily token limit reached, you do not sufficient tokens to generate questions! Please try again tomorrow.")
+else:
 
-    st.markdown("""
-    <span style="color:darkorange;">
-    Note: For this academic project, only the first 20 pages of the uploaded PDF will be processed. 
-    This limitation helps reduce token usage and minimize costs.
-    </span>
-    """, unsafe_allow_html=True)
+    # File Upload for PDF
+    uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
 
-    # Add some vertical space
-    st.write("\n" * 2)
+    if uploaded_pdf:
+        # Load the uploaded PDF using PdfReader
+        num_of_pages = len(PdfReader(uploaded_pdf).pages)
+        st.write(f"The uploaded PDF contains {num_of_pages} pages.")
+        st.markdown("""
+        <span style="color:darkorange;">
+        Note: For this academic project, only the first 20 pages of the uploaded PDF will be processed. 
+        This limitation helps reduce token usage and minimize costs.
+        </span>
+        """, unsafe_allow_html=True)
 
-    st.write(f"The uploaded PDF contains {num_of_pages} pages.")
-
-    if st.button("Generate Questions"):
-        # Extract text from PDF
-        course_text = extract_text_from_pdf(uploaded_pdf, 0, 20)
-
-        if "Error" in course_text:
-            st.error(course_text)  # Show the error if there's an issue with extraction
-        else:
-            # Check token limit before generating questions
-            if check_token_balance(1000):  # Arbitrary token estimate for the process
-                # Generate question paper
-                question_paper = generate_question_paper(course_text)
-
-                if "error" in question_paper:
-                    st.error(question_paper['error'])  # Display error message if present
+        # Generate Questions
+        if st.button("Generate Questions"):
+            if remaining_tokens > 0:
+                course_text = extract_text_from_pdf(uploaded_pdf, 0, 20)
+                if "Error" in course_text:
+                    st.error(course_text)
                 else:
-                    # Display Tokens Used
-                    st.subheader("Total Tokens Used")
-                    st.write(question_paper['tokens_used'])
-                    st.session_state['total_tokens_used'] += question_paper['tokens_used']
+                    question_paper = generate_question_paper(course_text)
+                    if question_paper:
+                        # Display Tokens Used
+                        st.subheader("Total Tokens Used")
+                        st.write(question_paper["tokens_used"])
 
-                    # Display the generated questions
-                    st.subheader("Multiple Choice Questions (5):")
-                    for i, mcq in enumerate(question_paper["mcqs"], 1):
-                        st.write(f"{i}. {mcq}")
+                        # Display the generated questions in a structured format
+                        st.subheader("Multiple Choice Questions (5):")
+                        for i, mcq in enumerate(question_paper["mcqs"], 1):
+                            st.markdown(f"**Q{i}:** {mcq['question']}")
+                            for option in mcq["options"]:
+                                st.write(option)
+                            st.markdown(f"**Answer:** {mcq['answer']}")
+                            st.write("---")  # Adds a horizontal line for separation
 
-                    st.subheader("Six-Mark Questions (2):")
-                    for i, question in enumerate(question_paper["six_mark_questions"], 1):
-                        st.write(f"{i}. {question}")
+                        st.subheader("Six-Mark Questions (2):")
+                        for i, question in enumerate(question_paper["six_mark_questions"], 1):
+                            st.markdown(f"**Q{i}:** {question['question']}")
+                            st.write("---")
 
-                    st.subheader("Ten-Mark Questions (2):")
-                    for i, question in enumerate(question_paper["ten_mark_questions"], 1):
-                        st.write(f"{i}. {question}")
+                        st.subheader("Ten-Mark Questions (2):")
+                        for i, question in enumerate(question_paper["ten_mark_questions"], 1):
+                            st.markdown(f"**Q{i}:** {question['question']}")
+                            st.write("---")
 
-                st.success("Question generation completed!")
+
+                        st.success("Question generation completed!")
             else:
-                st.error("You have reached the token limit and cannot generate more questions.")
+                st.warning("You have reached the token limit for today. Please try again tomorrow.")
