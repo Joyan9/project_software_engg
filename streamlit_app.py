@@ -2,13 +2,18 @@ import streamlit as st
 from openai import OpenAI
 from PyPDF2 import PdfReader
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+import csv
+import os
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
 
+# Define the CSV file path
+CSV_FILE_PATH = "user_metrics.csv"
+
 # Token limit and reset configurations
-DAILY_TOKEN_LIMIT = 10000
+DAILY_TOKEN_LIMIT = 50000
 
 # Initialize or retrieve token usage and date
 if "token_usage" not in st.session_state or "usage_date" not in st.session_state:
@@ -19,6 +24,26 @@ if "token_usage" not in st.session_state or "usage_date" not in st.session_state
 if st.session_state["usage_date"] != datetime.now().date():
     st.session_state["token_usage"] = 0
     st.session_state["usage_date"] = datetime.now().date()
+
+
+# Check if "start_time" exists in session state, initialize if not
+if "start_time" not in st.session_state:
+    st.session_state["start_time"] = None
+
+
+# Function to initialize the CSV file with headers if it doesn't exist
+def initialize_csv():
+    if not os.path.exists(CSV_FILE_PATH):
+        with open(CSV_FILE_PATH, mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["timestamp", "time_taken_seconds", "tokens_used"])
+
+# Function to log metrics to the CSV file
+def log_metrics(time_taken, tokens_used):
+    with open(CSV_FILE_PATH, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([datetime.now(), time_taken, tokens_used])
+
 
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
@@ -52,14 +77,26 @@ def generate_question_paper(course_content):
         f"Output Format:\n"
         f"Return a JSON object only, structured as follows:\n"
         f"{{\n"
-        f"  'mcqs': [List of 5 MCQs as JSON objects],\n"
-        f"  'six_mark_questions': [List of 2 six-mark questions as JSON objects],\n"
-        f"  'ten_mark_questions': [List of 2 ten-mark questions as JSON objects]\n"
+        f"  'mcqs': [\n"
+        f"    {{ 'question': 'Lorem ipsum dolor sit amet?',\n"
+        f"       'options': ['A) Lorem', 'B) Ipsum', 'C) Dolor', 'D) Sit'] }},\n"
+        f"    {{ 'question': 'Consectetur adipiscing elit?',\n"
+        f"       'options': ['A) Amet', 'B) Consectetur', 'C) Adipiscing', 'D) Elit'] }}\n"
+        f"  ],\n"
+        f"  'six_mark_questions': [\n"
+        f"    {{ 'question': 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',\n"
+        f"       'mark': 6 }}\n"
+        f"  ],\n"
+        f"  'ten_mark_questions': [\n"
+        f"    {{ 'question': 'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip.',\n"
+        f"       'mark': 10 }}\n"
+        f"  ]\n"
         f"}}\n\n"
         f"Instructions:\n"
         f"- ONLY respond with the JSON object.\n"
         f"- Do not include any introductory text or explanations.\n"
     )
+
 
     try:
         # Check token usage limit before making a request
@@ -133,7 +170,7 @@ As an IU student, I noticed that the unit tests available on myCampus often don'
 The user simply uploads a PDF of one of their units and clicks the 'Generate Questions' button. 
 The web app will then generate 5 multiple-choice questions, 2 six-mark questions, and 2 ten-mark questions all with varying difficulty levels.
          
-Each user gets a maximum of 100,000 tokens per session (100 tokens ≈ 75 words, read more [here](https://platform.openai.com/tokenizer)).
+Each user gets a maximum of 50,000 tokens per session (100 tokens ≈ 75 words, read more [here](https://platform.openai.com/tokenizer)).
 
 Please note that this web app was developed solely for academic purposes and is not intended for production use. Additionally, no data is stored on the servers.
 """)
@@ -144,8 +181,7 @@ st.write("\n" * 10)
 # Display remaining tokens
 remaining_tokens = DAILY_TOKEN_LIMIT - st.session_state["token_usage"]
 
-# Show token count
-st.write(f"Remaining Tokens Today: {remaining_tokens}")
+
 
 # Check if remaining tokens have gone below 1000
 if remaining_tokens < 1000:
@@ -154,6 +190,9 @@ else:
 
     # File Upload for PDF
     uploaded_pdf = st.file_uploader("Upload a PDF for one of your course units", type="pdf")
+
+    # Show token count
+    st.write(f"Remaining Tokens Today: {remaining_tokens}")
 
     if uploaded_pdf:
         # Load the uploaded PDF using PdfReader
@@ -166,39 +205,44 @@ else:
         </span>
         """, unsafe_allow_html=True)
 
-        # Generate Questions
+        # On button click, set start_time to current time
         if st.button("Generate Questions"):
-            if remaining_tokens > 0:
-                course_text = extract_text_from_pdf(uploaded_pdf, 0, 20)
-                if "Error" in course_text:
-                    st.error(course_text)
-                else:
-                    question_paper = generate_question_paper(course_text)
-                    if question_paper:
-                        # Display Tokens Used
-                        st.subheader("Total Tokens Used")
-                        st.write(question_paper["tokens_used"])
-
-                        # Display the generated questions in a structured format
-                        st.subheader("Multiple Choice Questions (5):")
-                        for i, mcq in enumerate(question_paper["mcqs"], 1):
-                            st.markdown(f"**Q{i}:** {mcq['question']}")
-                            for option in mcq["options"]:
-                                st.write(option)
-                            st.markdown(f"**Answer:** {mcq['answer']}")
-                            st.write("---")  # Adds a horizontal line for separation
-
-                        st.subheader("Six-Mark Questions (2):")
-                        for i, question in enumerate(question_paper["six_mark_questions"], 1):
-                            st.markdown(f"**Q{i}:** {question['question']}")
-                            st.write("---")
-
-                        st.subheader("Ten-Mark Questions (2):")
-                        for i, question in enumerate(question_paper["ten_mark_questions"], 1):
-                            st.markdown(f"**Q{i}:** {question['question']}")
-                            st.write("---")
-
-
-                        st.success("Question generation completed!")
+            st.session_state["start_time"] = datetime.now()
+            course_text = extract_text_from_pdf(uploaded_pdf, 0, 20)
+            if "Error" in course_text:
+                st.error("There was an error in parsing the uploaded PDF, please try again or with another PDF.")
             else:
-                st.warning("You have reached the token limit for today. Please try again tomorrow.")
+                question_paper = generate_question_paper(course_text)
+                if question_paper:
+                    # Calculate time taken to view questions
+                    time_to_view = datetime.now() - st.session_state["start_time"]
+                    time_taken_seconds = time_to_view.total_seconds()
+
+                    # CSV is initialized
+                    initialize_csv()
+                    # Log time taken and tokens used to CSV
+                    log_metrics(time_taken_seconds, question_paper["tokens_used"])
+
+                    # Display Tokens Used
+                    st.subheader("Total Tokens Used")
+                    st.write(question_paper["tokens_used"])
+                    
+                    # Display the generated questions in a structured format
+                    st.subheader("Multiple Choice Questions (5):")
+                    for i, mcq in enumerate(question_paper["mcqs"], 1):
+                        st.markdown(f"**Q{i}:** {mcq['question']}")
+                        for option in mcq["options"]:
+                            st.write(option)
+                        st.write("---")
+
+                    st.subheader("Six-Mark Questions (2):")
+                    for i, question in enumerate(question_paper["six_mark_questions"], 1):
+                        st.markdown(f"**Q{i}:** {question['question']}")
+                        st.write("---")
+
+                    st.subheader("Ten-Mark Questions (2):")
+                    for i, question in enumerate(question_paper["ten_mark_questions"], 1):
+                        st.markdown(f"**Q{i}:** {question['question']}")
+                        st.write("---")
+
+                    st.success("Question generation completed!")
