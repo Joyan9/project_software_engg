@@ -2,6 +2,8 @@
 
 Welcome to the **Unit Test Generator for IU**, a web application built to help IU students better prepare for their final exams by generating custom practice question papers from their course materials.
 
+Web-app link: https://unit-test-generator-iu.streamlit.app/
+
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
