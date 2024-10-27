@@ -181,15 +181,15 @@ st.write("\n" * 10)
 # Sample PDF download buttons
 st.markdown("### Sample PDFs")
 
-with open("/workspaces/project_software_engg/sample_pdfs/Software Engineering Unit 1.pdf", "rb") as file1:
+with open("sample_pdfs/Software Engineering Unit 1.pdf", "rb") as file1:
     st.download_button(label="Download Software Engineering Unit 1 PDF", 
                        data=file1, file_name="Software Engineering Unit 1.pdf")
 
-with open("/workspaces/project_software_engg/sample_pdfs/Advanced Mathematics Unit 1.pdf", "rb") as file2:
+with open("sample_pdfs/Advanced Mathematics Unit 1.pdf", "rb") as file2:
     st.download_button(label="Download Advanced Mathematics Unit 1 PDF", 
                        data=file2, file_name="Advanced Mathematics Unit 1.pdf")
 
-with open("/workspaces/project_software_engg/sample_pdfs/International Financial Accounting Unit 1.pdf", "rb") as file3:
+with open("sample_pdfs/International Financial Accounting Unit 1.pdf", "rb") as file3:
     st.download_button(label="Download International Financial Accounting Unit 1 PDF", 
                        data=file3, file_name="International_Financial_Accounting_Unit_1.pdf")
 
