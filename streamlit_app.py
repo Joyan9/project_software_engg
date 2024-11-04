@@ -228,40 +228,56 @@ else:
         if st.button("Generate Questions"):
             st.session_state["start_time"] = datetime.now()
             course_text = extract_text_from_pdf(uploaded_pdf, 0, 20)
+            
             if "Error" in course_text:
                 st.error("There was an error in parsing the uploaded PDF, please try again or with another PDF.")
             else:
                 question_paper = generate_question_paper(course_text)
+                
+                # Fail-safe: check if the output is a valid JSON structure
                 if question_paper:
-                    # Calculate time taken to view questions
-                    time_to_view = datetime.now() - st.session_state["start_time"]
-                    time_taken_seconds = time_to_view.total_seconds()
+                    try:
+                        # Validate that the expected keys are present
+                        if all(key in question_paper for key in ["mcqs", 
+                                                                 "six_mark_questions", 
+                                                                 "ten_mark_questions"]):
+                            # Calculate time taken to view questions
+                            time_to_view = datetime.now() - st.session_state["start_time"]
+                            time_taken_seconds = time_to_view.total_seconds()
 
-                    # CSV is initialized
-                    initialize_csv()
-                    # Log time taken and tokens used to CSV
-                    log_metrics(time_taken_seconds, question_paper["tokens_used"])
+                            # Initialize CSV and log time and tokens used
+                            initialize_csv()
+                            log_metrics(time_taken_seconds, question_paper["tokens_used"])
 
-                    # Display Tokens Used
-                    st.subheader("Total Tokens Used")
-                    st.write(question_paper["tokens_used"])
-                    
-                    # Display the generated questions in a structured format
-                    st.subheader("Multiple Choice Questions (5):")
-                    for i, mcq in enumerate(question_paper["mcqs"], 1):
-                        st.markdown(f"**Q{i}:** {mcq['question']}")
-                        for option in mcq["options"]:
-                            st.write(option)
-                        st.write("---")
+                            # Display Tokens Used
+                            st.subheader("Total Tokens Used")
+                            st.write(question_paper["tokens_used"])
 
-                    st.subheader("Six-Mark Questions (2):")
-                    for i, question in enumerate(question_paper["six_mark_questions"], 1):
-                        st.markdown(f"**Q{i}:** {question['question']}")
-                        st.write("---")
+                            st.success("Question generation completed!")
 
-                    st.subheader("Ten-Mark Questions (2):")
-                    for i, question in enumerate(question_paper["ten_mark_questions"], 1):
-                        st.markdown(f"**Q{i}:** {question['question']}")
-                        st.write("---")
+                            # Display the generated questions in a structured format
+                            st.subheader("Multiple Choice Questions")
+                            for i, mcq in enumerate(question_paper["mcqs"], 1):
+                                st.markdown(f"**Q{i}:** {mcq['question']}")
+                                for option in mcq["options"]:
+                                    st.write(option)
+                                st.write("---")
 
-                    st.success("Question generation completed!")
+                            st.subheader("Six-Mark Questions")
+                            for i, question in enumerate(question_paper["six_mark_questions"], 1):
+                                st.markdown(f"**Q{i}:** {question['question']}")
+                                st.write("---")
+
+                            st.subheader("Ten-Mark Questions")
+                            for i, question in enumerate(question_paper["ten_mark_questions"], 1):
+                                st.markdown(f"**Q{i}:** {question['question']}")
+                                st.write("---")
+
+                            
+                        else:
+                            raise ValueError("Invalid JSON structure")
+
+                    except (ValueError, KeyError, TypeError) as e:
+                        st.error("The generated output was not in the expected format. Please click 'Generate Questions' again.")
+                else:
+                    st.error("Failed to generate questions. Please try again.")
