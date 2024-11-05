@@ -3,7 +3,8 @@ from openai import OpenAI
 from PyPDF2 import PdfReader
 import json
 from datetime import datetime
-import csv
+import requests
+from io import StringIO
 import os
 import pandas as pd
 
@@ -33,18 +34,18 @@ if "start_time" not in st.session_state:
     st.session_state["start_time"] = None
 
 
-# Function to initialize the CSV file with headers if it doesn't exist
-def initialize_csv():
-    if not os.path.exists(CSV_FILE_PATH):
-        with open(CSV_FILE_PATH, mode="w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(["timestamp", "time_taken_seconds", "tokens_used"])
+# Function to load metrics data from the CSV file
+def load_metrics_data():
+    response = requests.get(CSV_FILE_PATH)
+    if response.status_code == 200:
+        return pd.read_csv(StringIO(response.text))
+    else:
+        st.error("Failed to load data from GitHub.")
+        return pd.DataFrame(columns=["timestamp", "time_taken_seconds", "tokens_used"])
 
 # Initialize DataFrame in session state
 if "metrics_df" not in st.session_state:
-    st.session_state["metrics_df"] = pd.DataFrame(columns=["timestamp", 
-                                                           "time_taken_seconds", 
-                                                           "tokens_used"])
+    st.session_state["metrics_df"] = load_metrics_data()
 
 # Function to log metrics in-memory
 def log_metrics_in_memory(time_taken_seconds, tokens_used):
@@ -59,16 +60,7 @@ def log_metrics_in_memory(time_taken_seconds, tokens_used):
 
 # Function to save the in-memory DataFrame to CSV
 def save_metrics_to_csv():
-    if os.path.exists(CSV_FILE_PATH):
-        # Append without headers if CSV already exists
-        st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="a", header=False, index=False)
-    else:
-        # Write with headers if CSV doesn't exist
-        st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="w", header=True, index=False)
-    
-    # Clear in-memory DataFrame after saving to avoid duplication
-    st.session_state["metrics_df"] = st.session_state["metrics_df"].iloc[0:0]
-
+    st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="w", header=True, index=False)
 
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
@@ -270,16 +262,12 @@ else:
                             time_to_view = datetime.now() - st.session_state["start_time"]
                             time_taken_seconds = time_to_view.total_seconds()
 
-                            # Initialize CSV and log time and tokens used
-                            initialize_csv()
                             log_metrics_in_memory(time_taken_seconds, question_paper["tokens_used"])
+                            save_metrics_to_csv()
 
                             # Display Tokens Used
                             st.subheader("Total Tokens Used")
                             st.write(question_paper["tokens_used"])
-
-                            # Save immediately after logging each metric
-                            save_metrics_to_csv()
 
                             st.success("Question generation completed!")
 
