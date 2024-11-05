@@ -2,13 +2,13 @@ import streamlit as st
 from openai import OpenAI
 from PyPDF2 import PdfReader
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 import csv
 import os
-import tempfile
+import pandas as pd
 
-# Define the CSV file path in a temporary directory
-CSV_FILE_PATH = os.path.join(tempfile.gettempdir(), "user_metrics.csv")
+# Define the CSV file path
+CSV_FILE_PATH = "user_metrics.csv"
 
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
@@ -41,11 +41,34 @@ def initialize_csv():
             writer = csv.writer(file)
             writer.writerow(["timestamp", "time_taken_seconds", "tokens_used"])
 
-# Function to log metrics to the CSV file
-def log_metrics(time_taken, tokens_used):
-    with open(CSV_FILE_PATH, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([datetime.now(), time_taken, tokens_used])
+# Initialize DataFrame in session state
+if "metrics_df" not in st.session_state:
+    st.session_state["metrics_df"] = pd.DataFrame(columns=["timestamp", 
+                                                           "time_taken_seconds", 
+                                                           "tokens_used"])
+
+# Function to log metrics in-memory
+def log_metrics_in_memory(time_taken_seconds, tokens_used):
+    new_row = {
+        "timestamp": datetime.now().isoformat(),
+        "time_taken_seconds": time_taken_seconds,
+        "tokens_used": tokens_used
+    }
+    st.session_state["metrics_df"] = pd.concat([st.session_state["metrics_df"], 
+                                                pd.DataFrame([new_row])], 
+                                                ignore_index=True)
+
+# Function to save the in-memory DataFrame to CSV
+def save_metrics_to_csv():
+    if os.path.exists(CSV_FILE_PATH):
+        # Append without headers if CSV already exists
+        st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="a", header=False, index=False)
+    else:
+        # Write with headers if CSV doesn't exist
+        st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="w", header=True, index=False)
+    
+    # Clear in-memory DataFrame after saving to avoid duplication
+    st.session_state["metrics_df"] = st.session_state["metrics_df"].iloc[0:0]
 
 
 # Function to extract text from specific pages in a PDF
@@ -250,11 +273,14 @@ else:
 
                             # Initialize CSV and log time and tokens used
                             initialize_csv()
-                            log_metrics(time_taken_seconds, question_paper["tokens_used"])
+                            log_metrics_in_memory(time_taken_seconds, question_paper["tokens_used"])
 
                             # Display Tokens Used
                             st.subheader("Total Tokens Used")
                             st.write(question_paper["tokens_used"])
+
+                            # Save immediately after logging each metric
+                            save_metrics_to_csv()
 
                             st.success("Question generation completed!")
 
