@@ -6,10 +6,35 @@ from datetime import datetime
 import requests
 from io import StringIO
 import os
-import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
 
-# Define the CSV file path
-CSV_FILE_PATH = "https://raw.githubusercontent.com/Joyan9/project_software_engg/refs/heads/main/user_metrics.csv"
+# Define Google Sheets API scope
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
+         "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+
+# Convert the AttrDict to a regular dictionary
+service_account_info = dict(st.secrets["gcp_service_account"])
+
+# Write the service account info to a temporary JSON file
+with open("service_account_key.json", "w") as f:
+    json.dump(service_account_info, f)
+
+# Set the environment variable for Google Cloud credentials
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service_account_key.json"
+
+# Authenticate and authorize using the credentials
+creds = Credentials.from_service_account_file(os.environ["GOOGLE_APPLICATION_CREDENTIALS"], scopes=scope)
+client = gspread.authorize(creds)
+
+# Open your Google Sheet by name
+sheet = client.open('IU Unit Test Generator Logs').worksheet('Logs')  
+
+# Function to log metrics directly to Google Sheets
+def log_metrics_to_google_sheets(time_taken, tokens_used):
+    # Append metrics to the next available row in Google Sheets
+    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), time_taken, tokens_used])
+
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
@@ -42,25 +67,6 @@ def load_metrics_data():
     else:
         st.error("Failed to load data from GitHub.")
         return pd.DataFrame(columns=["timestamp", "time_taken_seconds", "tokens_used"])
-
-# Initialize DataFrame in session state
-if "metrics_df" not in st.session_state:
-    st.session_state["metrics_df"] = load_metrics_data()
-
-# Function to log metrics in-memory
-def log_metrics_in_memory(time_taken_seconds, tokens_used):
-    new_row = {
-        "timestamp": datetime.now().isoformat(),
-        "time_taken_seconds": time_taken_seconds,
-        "tokens_used": tokens_used
-    }
-    st.session_state["metrics_df"] = pd.concat([st.session_state["metrics_df"], 
-                                                pd.DataFrame([new_row])], 
-                                                ignore_index=True)
-
-# Function to save the in-memory DataFrame to CSV
-def save_metrics_to_csv():
-    st.session_state["metrics_df"].to_csv(CSV_FILE_PATH, mode="w", header=True, index=False)
 
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
@@ -262,8 +268,8 @@ else:
                             time_to_view = datetime.now() - st.session_state["start_time"]
                             time_taken_seconds = time_to_view.total_seconds()
 
-                            log_metrics_in_memory(time_taken_seconds, question_paper["tokens_used"])
-                            save_metrics_to_csv()
+                             # Log metrics to Google Sheets
+                            log_metrics_to_google_sheets(time_taken_seconds, question_paper["tokens_used"])
 
                             # Display Tokens Used
                             st.subheader("Total Tokens Used")
