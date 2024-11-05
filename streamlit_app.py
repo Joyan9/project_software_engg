@@ -5,12 +5,15 @@ import json
 from datetime import datetime, timedelta
 import csv
 import os
+import tempfile
+
+# Define the CSV file path in a temporary directory
+CSV_FILE_PATH = os.path.join(tempfile.gettempdir(), "user_metrics.csv")
+
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
 
-# Define the CSV file path
-CSV_FILE_PATH = "user_metrics.csv"
 
 # Token limit and reset configurations
 DAILY_TOKEN_LIMIT = 50000
