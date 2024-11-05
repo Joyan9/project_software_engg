@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 from PyPDF2 import PdfReader
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 import csv
 import os
 import pandas as pd
