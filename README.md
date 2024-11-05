@@ -1,4 +1,4 @@
-# Unit Test Generator for IU - README
+# Unit Test Generator for IU
 
 Welcome to the **Unit Test Generator for IU**, a web application built to help IU students better prepare for their final exams by generating custom practice question papers from their course materials.
 
@@ -90,11 +90,12 @@ Each user is allowed a maximum of 50,000 tokens per day (approx. 37,500 words). 
 
 ```
 unit-test-generator-iu/
-├── app.py                   # Main Streamlit application script
+├── streamlit_app.py         # Main Streamlit application script
+├── test_app.py              # Tests for each main unit
 ├── requirements.txt         # List of dependencies
 ├── user_metrics.csv         # CSV file for logging metrics
-└── .streamlit/
-    └── secrets.toml         # Streamlit secrets configuration
+├── sample_pdfs              # Sample PDFs for trying out the web-app
+
 ```
 
 ## License
