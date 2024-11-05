@@ -8,8 +8,7 @@ import os
 import pandas as pd
 
 # Define the CSV file path
-CSV_FILE_PATH = "user_metrics.csv"
-
+CSV_FILE_PATH = "https://raw.githubusercontent.com/Joyan9/project_software_engg/refs/heads/main/user_metrics.csv"
 
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
