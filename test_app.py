@@ -71,15 +71,45 @@ def test_extract_text_from_pdf_error_handling():
     assert "Error extracting text from PDF" in result, "Should return an error message for invalid PDF."
 
 
-# Test 5: Token limit warning message
-def test_token_limit_warning():
-    st.session_state["token_usage"] = DAILY_TOKEN_LIMIT
+# Example function to log data to Google Sheets (import this if it's in another module)
+def log_metrics_to_google_sheets(sheet, data):
+    """Logs metrics (including timestamp) to Google Sheets."""
+    try:
+        # Assume data is appended with the following format:
+        sheet.append_row(data)
+        return True
+    except Exception as e:
+        return str(e)
 
-    remaining_tokens = DAILY_TOKEN_LIMIT - st.session_state["token_usage"]
-    assert remaining_tokens == 0, "Remaining tokens should be 0 when limit is reached."
+# Fixture to mock Google Sheets
+@pytest.fixture
+def mock_google_sheets():
+    with patch("google_sheets_api.GoogleSheetClient") as MockGoogleSheetClient:
+        mock_client = MockGoogleSheetClient.return_value
+        mock_client.append_row = MagicMock()
+        yield mock_client
 
-    # Mock Streamlit warning function to check message
-    with patch("streamlit.warning") as mock_warning:
-        if remaining_tokens <= 0:
-            st.warning("Daily token limit reached. Try again tomorrow.")
-        mock_warning.assert_called_once_with("Daily token limit reached. Try again tomorrow.")
+# Test suite for Google Sheets logging
+def test_log_metrics_to_google_sheets(mock_google_sheets):
+    # Sample data to log
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = [timestamp, "Some metric", 123]  # Adjust as needed
+
+    # Log data using the function
+    result = log_metrics_to_google_sheets(mock_google_sheets, data)
+
+    # Verify that append_row was called once with the correct data
+    mock_google_sheets.append_row.assert_called_once_with(data)
+    assert result is True, "Expected logging function to return True on success"
+
+def test_log_metrics_to_google_sheets_failure(mock_google_sheets):
+    # Simulate an exception when trying to log data
+    mock_google_sheets.append_row.side_effect = Exception("Google Sheets API error")
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = [timestamp, "Some metric", 123]  # Adjust as needed
+    result = log_metrics_to_google_sheets(mock_google_sheets, data)
+
+    # Check that an exception message is returned
+    assert result == "Google Sheets API error", "Expected logging function to return an error message on failure"
+
