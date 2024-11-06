@@ -3,8 +3,6 @@ from openai import OpenAI
 from PyPDF2 import PdfReader
 import json
 from datetime import datetime
-import requests
-from io import StringIO
 import os
 import gspread
 from google.oauth2.service_account import Credentials
@@ -59,15 +57,6 @@ if "start_time" not in st.session_state:
     st.session_state["start_time"] = None
 
 
-# Function to load metrics data from the CSV file
-def load_metrics_data():
-    response = requests.get(CSV_FILE_PATH)
-    if response.status_code == 200:
-        return pd.read_csv(StringIO(response.text))
-    else:
-        st.error("Failed to load data from GitHub.")
-        return pd.DataFrame(columns=["timestamp", "time_taken_seconds", "tokens_used"])
-
 # Function to extract text from specific pages in a PDF
 def extract_text_from_pdf(pdf, start_page, end_page):
     try:
@@ -116,7 +105,7 @@ def generate_question_paper(course_content):
         f"  ]\n"
         f"}}\n\n"
         f"Instructions:\n"
-        f"- ONLY respond with the JSON object.\n"
+        f"- ONLY RESPOND WITH THE JSON.\n"
         f"- Do not include any introductory text or explanations.\n"
     )
 
@@ -165,7 +154,7 @@ st.markdown(
         text-align: center;
     }
     .centered-image {
-        width: 35%; /* Adjust the width as needed */
+        width: 40%; /* Adjust the width as needed */
         background-color: white;
     }
     </style>
@@ -188,14 +177,15 @@ st.markdown(
 st.write("\n" * 10)
 # Some introductory content
 st.write("""
-As an IU student, I noticed that the unit tests available on myCampus often don't challenge students enough. This tool is designed to help IU students push themselves further and better prepare for their final exams.
+As an IU student, I noticed that the unit tests available on myCampus often don't challenge students enough. 
+This tool is designed to help IU students push themselves further and better prepare for their final exams.
 
 The user simply uploads a PDF of one of their units and clicks the 'Generate Questions' button. 
 The web app will then generate 5 multiple-choice questions, 2 six-mark questions, and 2 ten-mark questions all with varying difficulty levels.
          
 Each user gets a maximum of 50,000 tokens per session (100 tokens ≈ 75 words, read more [here](https://platform.openai.com/tokenizer)).
 
-Please note that this web app was developed solely for academic purposes and is not intended for production use. Additionally, no data is stored on the servers.
+Please note that this web app was developed solely for academic purposes and is not intended for production use. 
 """)
 
 # Add vertical space
@@ -203,6 +193,7 @@ st.write("\n" * 10)
 
 # Sample PDF download buttons
 st.markdown("### Sample PDFs")
+st.write("Please use any of the below PDFs for trying out the Unit Test Generator.")
 
 with open("/workspaces/project_software_engg/sample_pdfs/Software Engineering Unit 1.pdf", "rb") as file1:
     st.download_button(label="Download Software Engineering Unit 1 PDF", 
