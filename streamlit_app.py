@@ -1,3 +1,4 @@
+# Import necessary libraries
 import streamlit as st
 from openai import OpenAI
 from PyPDF2 import PdfReader
@@ -7,11 +8,11 @@ import os
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Define Google Sheets API scope
+# Define the required Google Sheets API scope
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
          "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
-# Convert the AttrDict to a regular dictionary
+# Retrieve and convert Google service account information from Streamlit secrets
 service_account_info = dict(st.secrets["gcp_service_account"])
 
 # Write the service account info to a temporary JSON file
@@ -33,7 +34,7 @@ def log_metrics_to_google_sheets(time_taken, tokens_used):
     # Append metrics to the next available row in Google Sheets
     sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), time_taken, tokens_used])
 
-
+# OpenAI API key from Streamlit secrets
 open_ai_key = st.secrets["open_ai_key"]["key"]
 client = OpenAI(api_key=open_ai_key)
 
@@ -145,7 +146,7 @@ def generate_question_paper(course_content):
         return None
 
 
-# Streamlit App UI
+# Streamlit UI setup for a title image and introduction text
 # CSS for centering the image and caption
 st.markdown(
     """
