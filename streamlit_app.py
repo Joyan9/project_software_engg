@@ -107,7 +107,6 @@ def generate_question_paper(course_content):
         f"}}\n\n"
         f"Instructions:\n"
         f"- ONLY RESPOND WITH THE JSON.\n"
-        f"- Do not include any introductory text or explanations.\n"
     )
 
 
